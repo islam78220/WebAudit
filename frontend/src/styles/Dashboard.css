@@ -1,0 +1,24 @@
+/* src/styles/Dashboard.css */
+.dashboard-container {
+  display: flex;
+}
+
+.main-content {
+  margin-left: 250px;
+  padding: 20px;
+  width: 100%;
+}
+
+.dashboard-header h1 {
+  font-size: 28px;
+  margin-bottom: 20px;
+}
+
+.overview, .seo-audit {
+  margin-top: 20px;
+}
+
+h2 {
+  font-size: 22px;
+  margin-bottom: 10px;
+}
