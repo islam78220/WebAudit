@@ -2,46 +2,46 @@ const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const rateLimit = require('express-rate-limit');
+const dotenv = require('dotenv');
+
 const { User } = require('./models/User');
-const { authenticate, generateAuthToken } = require('./middleware/auth');
+const authMiddleware = require('./middleware/authMiddleware');
+const { generateAuthToken } = require('./controllers/authController');
+
+// Chargement des variables d’environnement
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Middleware de parsing JSON
 app.use(bodyParser.json());
-const auditRoutes = require('./routes/auditRoutes');
-const authRoutes = require('./routes/authRoutes'); // ton auth.js
-const userRoutes = require('./routes/userRoutes'); // si tu en as
 
-app.use('/api', auditRoutes);
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-
-// Rate Limiting
+// Rate Limiting – doit être défini AVANT les routes
 const limiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 10, // Limiter à 10 requêtes par minute
+  max: 10, // 10 requêtes par minute
   message: 'Trop de requêtes, veuillez réessayer plus tard.',
 });
 app.use(limiter);
 
-// Connexion MongoDB
+// Connexion à MongoDB sans les options dépréciées
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.log(err));
+  .then(() => console.log('Connexion à MongoDB réussie'))
+  .catch(err => console.error('Erreur de connexion MongoDB:', err));
 
-// Gestionnaire d'erreur global
-app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ message: 'Erreur interne du serveur' });
-});
+// Importation des routes
+const auditRoutes = require('./routes/auditRoutes');
 
-// Route d'inscription
+// Utilisation des routes
+app.use('/api', auditRoutes);
+
+// Route d’inscription
 app.post('/register', async (req, res) => {
   try {
-    const { nom, email, password, entreprise, telephone, role } = req.body;
-    
-    if (!nom || !email || !password || !entreprise || !telephone || !role) {
+    const { nom, email, password, entreprise, telephone } = req.body;
+
+    if (!nom || !email || !password || !entreprise || !telephone ) {
       return res.status(400).json({ message: 'Veuillez fournir tous les champs requis' });
     }
 
@@ -50,10 +50,8 @@ app.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'Email déjà utilisé' });
     }
 
-    const newUser = new User({ nom, email, password,
-       entreprise, telephone, role });
+    const newUser = new User({ nom, email, password, entreprise, telephone});
     await newUser.save();
-    
 
     res.status(201).json({ message: 'Utilisateur inscrit avec succès' });
   } catch (error) {
@@ -86,8 +84,8 @@ app.post('/login', async (req, res) => {
   }
 });
 
-// Route protégée (Exemple)
-app.get('/user', authenticate, async (req, res) => {
+// Exemple de route protégée
+app.get('/user', authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
     res.json(user);
@@ -96,4 +94,13 @@ app.get('/user', authenticate, async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Gestionnaire d’erreurs global
+app.use((err, req, res, next) => {
+  console.error('Erreur non capturée :', err);
+  res.status(500).json({ message: 'Erreur interne du serveur' });
+});
+
+// Lancement du serveur
+app.listen(PORT, () => {
+  console.log(` Serveur lancé sur le port ${PORT}`);
+});

@@ -22,21 +22,11 @@ const UserSchema = new mongoose.Schema({
     required: true, 
     match: [/^\+?[1-9]\d{1,14}$/, 'Veuillez entrer un numéro de téléphone valide']
   },
-  role: { 
-    type: String, 
-    required: true, 
-    enum: ['développeur', 'manager', 'responsable marketing', 'directeur', 'assistant', 'autre'],
-    default: 'autre'
-  },
   password: { 
     type: String, 
     required: true,
     minlength: 6, // Longueur minimale pour le mot de passe
-  },
-  date: { 
-    type: Date, 
-    default: Date.now 
-  },
+  }
 });
 
 // Middleware pour hacher le mot de passe avant de le sauvegarder

@@ -1,14 +1,75 @@
 const express = require('express');
 const { WebAudit } = require('../models/WebAudit');
-const { generateAuditReport } = require('../utils/reportUtils');
-const { authenticate } = require('../middleware/authenticate');
+const { analyzeWebsite } = require('../utils/auditUtils');
+const { getAIRecommendations } = require('../utils/aiUtils');
+const { generatePDFReport } = require('../utils/pdfUtils');
+const authMiddleware = require('../middleware/authMiddleware');
 const router = express.Router();
 
-// 1. Vue d'ensemble des audits
-router.get('/overview', authenticate, async (req, res) => {
+// Lancer un nouvel audit
+router.post('/run', authMiddleware, async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ message: 'URL requise pour lancer un audit.' });
+
+  try {
+    // 1. Analyse du site
+    const auditResults = await analyzeWebsite(url);
+
+    // 2. Génération des recommandations IA
+    const recommandationsIA = await getAIRecommendations(auditResults);
+
+    // 3. Injection des recommandations dans les sections
+    ['performance', 'seo', 'ux_ui'].forEach(section => {
+      if (auditResults[section]) {
+        auditResults[section].recommandations_ia = recommandationsIA[section] || [];
+      }
+    });
+
+    // 4. Sauvegarde en BDD
+    const newAudit = new WebAudit({
+      user: req.user.id,
+      url,
+      performance: auditResults.performance,
+      seo: auditResults.seo,
+      ui_ux: auditResults.ux_ui,
+      date: new Date(),
+    });
+
+    const savedAudit = await newAudit.save();
+    res.status(201).json({ message: 'Audit terminé et enregistré.', auditId: savedAudit._id });
+
+  } catch (error) {
+    console.error('Erreur durant l\'audit :', error);
+    res.status(500).json({ message: 'Erreur lors de l’audit du site.' });
+  }
+});
+
+// Rapport PDF à la volée
+router.get('/report-pdf/:auditId', authMiddleware, async (req, res) => {
+  try {
+    const audit = await WebAudit.findById(req.params.auditId);
+    if (!audit || audit.user.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Accès refusé ou audit introuvable.' });
+    }
+
+    const pdfBuffer = await generatePDFReport(audit);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename=audit_${audit._id}.pdf`,
+    });
+
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error('Erreur PDF :', error);
+    res.status(500).json({ message: 'Erreur lors de la génération du PDF.' });
+  }
+});
+
+// Routes précédentes (overview, performance, seo, ux-ui, report, history)
+router.get('/overview', authMiddleware, async (req, res) => {
   try {
     const audits = await WebAudit.find({ user: req.user.id }).select('url performance seo ui_ux date');
-    if (!audits || audits.length === 0) {
+    if (!audits.length) {
       return res.status(404).json({ message: 'Aucun audit trouvé pour cet utilisateur.' });
     }
 
@@ -28,8 +89,7 @@ router.get('/overview', authenticate, async (req, res) => {
   }
 });
 
-// 2. Détails de l'audit de performance
-router.get('/performance/:auditId', authenticate, async (req, res) => {
+router.get('/performance/:auditId', authMiddleware, async (req, res) => {
   try {
     const audit = await WebAudit.findById(req.params.auditId);
     if (!audit || audit.user.toString() !== req.user.id) {
@@ -43,8 +103,7 @@ router.get('/performance/:auditId', authenticate, async (req, res) => {
   }
 });
 
-// 3. Détails de l'audit SEO
-router.get('/seo/:auditId', authenticate, async (req, res) => {
+router.get('/seo/:auditId', authMiddleware, async (req, res) => {
   try {
     const audit = await WebAudit.findById(req.params.auditId);
     if (!audit || audit.user.toString() !== req.user.id) {
@@ -58,8 +117,7 @@ router.get('/seo/:auditId', authenticate, async (req, res) => {
   }
 });
 
-// 4. Détails de l'audit UX/UI
-router.get('/ux-ui/:auditId', authenticate, async (req, res) => {
+router.get('/ux-ui/:auditId', authMiddleware, async (req, res) => {
   try {
     const audit = await WebAudit.findById(req.params.auditId);
     if (!audit || audit.user.toString() !== req.user.id) {
@@ -73,32 +131,10 @@ router.get('/ux-ui/:auditId', authenticate, async (req, res) => {
   }
 });
 
-// 5. Générer un rapport complet
-router.get('/report/:auditId', authenticate, async (req, res) => {
-  try {
-    const audit = await WebAudit.findById(req.params.auditId);
-    if (!audit || audit.user.toString() !== req.user.id) {
-      return res.status(404).json({ message: 'Audit non trouvé ou accès interdit.' });
-    }
-
-    const filename = await generateAuditReport(audit); // ex : retourne 'rapport_123.pdf'
-    res.download(`./reports/${filename}`, filename, (err) => {
-      if (err) {
-        console.error('Erreur lors du téléchargement du rapport :', err);
-        res.status(500).json({ message: 'Erreur lors du téléchargement du rapport.' });
-      }
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur lors de la génération du rapport.' });
-  }
-});
-
-// 6. Historique des audits pour l'utilisateur authentifié
-router.get('/history', authenticate, async (req, res) => {
+router.get('/history', authMiddleware, async (req, res) => {
   try {
     const audits = await WebAudit.find({ user: req.user.id }).select('url performance seo ui_ux date');
-    if (!audits || audits.length === 0) {
+    if (!audits.length) {
       return res.status(404).json({ message: 'Aucun audit trouvé dans l\'historique.' });
     }
 
