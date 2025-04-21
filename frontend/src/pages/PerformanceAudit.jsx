@@ -1,59 +1,33 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Sidebar from "../components/Sidebar";
 import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 import { motion } from "framer-motion";
-import { FaExclamationCircle, FaCheckCircle } from "react-icons/fa"; // Import des icônes
+import { FaExclamationCircle, FaCheckCircle } from "react-icons/fa";
 import "react-circular-progressbar/dist/styles.css";
 import "../styles/PerformanceAudit.css";
 import auditImg from "../assets/audit-image.png";
-
-const performanceScore = 85;
-
-const metrics = [
-  {
-    label: "Temps de Chargement",
-    value: 72,
-    color: "#00BFFF",
-    detail: {
-      description: "Le temps de chargement des pages a un impact direct sur l'expérience utilisateur et le SEO.",
-      error: "Le temps de chargement est trop long, supérieur à 3 secondes.",
-      solution: "Optimiser les images, minifier les ressources et utiliser le lazy loading.",
-    },
-  },
-  {
-    label: "Taille de la Page",
-    value: 80,
-    color: "#FF8C00",
-    detail: {
-      description: "La taille de la page influence le temps de téléchargement et l'expérience sur mobile.",
-      error: "La taille de la page est trop élevée, ce qui peut ralentir le chargement.",
-      solution: "Réduire la taille des images et des scripts, utiliser la compression.",
-    },
-  },
-  {
-    label: "Nombre de Requêtes",
-    value: 65,
-    color: "#32CD32",
-    detail: {
-      description: "Le nombre de requêtes HTTP affecte le temps de chargement de la page.",
-      error: "Il y a trop de requêtes HTTP, ce qui ralentit le site.",
-      solution: "Combiner les fichiers CSS/JS, utiliser le caching.",
-    },
-  },
-  {
-    label: "Optimisation Mobile",
-    value: 90,
-    color: "#8A2BE2",
-    detail: {
-      description: "Une bonne optimisation mobile garantit une expérience utilisateur fluide sur tous les appareils.",
-      error: "La version mobile n'est pas optimisée, le site est lent sur mobile.",
-      solution: "Utiliser des media queries, optimiser les images et les polices pour mobile.",
-    },
-  },
-];
+import { fetchPerformanceData } from "../api"; // Import de l’API
+import axios from 'axios';
 
 const PerformanceAudit = () => {
+  const [performanceScore, setPerformanceScore] = useState(0);
+  const [metrics, setMetrics] = useState([]);
   const [selectedMetric, setSelectedMetric] = useState(0);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const response = await fetchPerformanceData();
+        const data = response.data;
+        setPerformanceScore(data.scorePerformance);
+        setMetrics(data.metrics); // structure : [{ label, value, color, detail }]
+      } catch (error) {
+        console.error("Erreur lors du chargement des données :", error);
+      }
+    };
+
+    loadData();
+  }, []);
 
   return (
     <div className="performance-audit-container">
@@ -121,7 +95,7 @@ const PerformanceAudit = () => {
             <div
               className={`metric-circle ${selectedMetric === index ? "selected" : ""}`}
               key={index}
-              onClick={() => setSelectedMetric(index)} // Mise à jour de la métrique sélectionnée
+              onClick={() => setSelectedMetric(index)}
             >
               <CircularProgressbar
                 value={metric.value}
@@ -138,36 +112,28 @@ const PerformanceAudit = () => {
           ))}
         </motion.div>
 
-        <motion.div
-          className="metric-detail-section"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-        >
-          <h3>{metrics[selectedMetric].label}</h3>
-          <p className="metric-description">{metrics[selectedMetric].detail.description}</p>
-          
-          {/* Affichage des erreurs et solutions pour la métrique sélectionnée */}
-          <div className="metric-error-solution">
-            <div className="error">
-              <FaExclamationCircle className="error-icon" />
-              <span>{metrics[selectedMetric].detail.error}</span>
+        {metrics.length > 0 && (
+          <motion.div
+            className="metric-detail-section"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            <h3>{metrics[selectedMetric].label}</h3>
+            <p className="metric-description">{metrics[selectedMetric].detail.description}</p>
+
+            <div className="metric-error-solution">
+              <div className="error">
+                <FaExclamationCircle className="error-icon" />
+                <span>{metrics[selectedMetric].detail.error}</span>
+              </div>
+              <div className="solution">
+                <FaCheckCircle className="solution-icon" />
+                <span>{metrics[selectedMetric].detail.solution}</span>
+              </div>
             </div>
-            <div className="solution">
-              <FaCheckCircle className="solution-icon" />
-              <span>{metrics[selectedMetric].detail.solution}</span>
-            </div>
-            <div className="error">
-              <FaExclamationCircle className="error-icon" />
-              <span>{metrics[selectedMetric].detail.error}</span>
-            </div>
-            <div className="solution">
-              <FaCheckCircle className="solution-icon" />
-              <span>{metrics[selectedMetric].detail.solution}</span>
-            </div>
-            
-          </div>
-        </motion.div>
+          </motion.div>
+        )}
       </main>
     </div>
   );
