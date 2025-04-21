@@ -22,7 +22,7 @@ const PerformanceAudit = () => {
         setPerformanceScore(data.scorePerformance);
         setMetrics(data.metrics); // structure : [{ label, value, color, detail }]
       } catch (error) {
-        console.error("Erreur lors du chargement des données :", error);
+        console.error("Erreur lors du chargement des données :", error);ù
       }
     };
 
