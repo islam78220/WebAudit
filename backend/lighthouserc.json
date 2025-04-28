@@ -1,0 +1,11 @@
+{
+    "ci": {
+      "server": {
+        "storage": {
+          "target": "mongodb",
+          "uri": "mongodb://localhost:27017/web-audit"
+        }
+      }
+    }
+  }
+  

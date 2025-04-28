@@ -1,84 +1,51 @@
-const path = require('path');
+import { auditWithLighthouse } from '../services/lighthouseService.js';
+import { auditWithGTmetrix } from '../services/gtmetrixService.js';
+import { generateRecommendationsWithMistral } from '../services/mistralService.js';
+import WebAudit from '../models/Audit.js';
 
-const { WebAudit } = require('../models/WebAudit');
-const { analyzeWebsite } = require('../utils/auditUtils');
-const { getAIRecommendations } = require('../utils/aiUtils');
-const { generatePDFReport } = require('../utils/pdfUtils');
-
-// Vue d'ensemble des audits de l'utilisateur
-exports.getAuditOverview = async (req, res) => {
+// Créer un audit
+const createAudit = async (req, res) => {
+  const { url } = req.body;
   try {
-    const audits = await WebAudit.find({ user: req.user.id }).select('url performance seo ui_ux date');
-    if (!audits || audits.length === 0) {
-      return res.status(404).json({ message: 'Aucun audit trouvé pour cet utilisateur.' });
-    }
+    // Appeler les audits avec Lighthouse et GTmetrix
+    const lighthouseResult = await auditWithLighthouse(url);
+    const gtmetrixResult = await auditWithGTmetrix(url);
 
-    const overview = audits.map(audit => ({
-      id: audit._id,
-      url: audit.url,
-      performanceScore: audit.performance?.score_total,
-      seoScore: audit.seo?.score_total,
-      uxUiScore: audit.ui_ux?.score_total,
-      date: audit.date,
-    }));
+    // Fusionner les résultats
+    const errors = {
+      seo: lighthouseResult.seoErrors,
+      performance: gtmetrixResult.performanceScore,
+      accessibility: lighthouseResult.accessibilityErrors,
+    };
 
-    res.json({ overview });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur lors de la récupération des audits.' });
-  }
-};
+    // Générer les recommandations IA
+    const recommendations = await generateRecommendationsWithMistral(errors);
 
-// Détails d'un audit par ID
-exports.getAuditDetails = async (req, res) => {
-  try {
-    const audit = await WebAudit.findById(req.params.auditId);
-    if (!audit || audit.user.toString() !== req.user.id) {
-      return res.status(404).json({ message: 'Audit non trouvé ou accès interdit.' });
-    }
-
-    res.json({ audit });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur lors de la récupération des détails de l\'audit.' });
-  }
-};
-
-// Télécharger le rapport généré pour un audit
-exports.downloadAuditReport = async (req, res) => {
-  try {
-    const audit = await WebAudit.findById(req.params.auditId);
-    if (!audit || audit.user.toString() !== req.user.id) {
-      return res.status(404).json({ message: 'Audit non trouvé ou accès interdit.' });
-    }
-
-    const filename = await generatePDFReport(audit);
-    const filePath = path.join(__dirname, '../reports', filename);
-    
-    res.download(filePath, filename, (err) => {
-      if (err) {
-        console.error('Erreur lors du téléchargement du rapport :', err);
-        res.status(500).json({ message: 'Erreur lors du téléchargement du rapport.' });
-      }
+    // Sauvegarder l'audit et les recommandations dans la base de données
+    const audit = new Audit({
+      url,
+      score_seo: lighthouseResult.seoScore,
+      score_performance: gtmetrixResult.performanceScore,
+      score_uiux: lighthouseResult.accessibilityScore,
+      recommandations: recommendations,
+      utilisateur_id: req.userId
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur lors de la génération du rapport.' });
+    await audit.save();
+
+    res.status(201).json({ audit });
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur serveur' });
   }
 };
 
-// Récupérer les recommandations de l'IA pour un audit
-exports.getAIRecommendationsForAudit = async (req, res) => {
+// Obtenir l'historique des audits d'un utilisateur
+const getUserAudits = async (req, res) => {
   try {
-    const audit = await WebAudit.findById(req.params.auditId);
-    if (!audit || audit.user.toString() !== req.user.id) {
-      return res.status(404).json({ message: 'Audit non trouvé ou accès interdit.' });
-    }
-
-    const recommendations = await getAIRecommendations(audit);
-    res.json({ recommendations });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur lors de la récupération des recommandations AI.' });
+    const audits = await Audit.find({ utilisateur_id: req.userId });
+    res.status(200).json(audits);
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur serveur' });
   }
 };
+
+export { createAudit, getUserAudits };
