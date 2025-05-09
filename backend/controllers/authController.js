@@ -1,50 +1,108 @@
-import User from '../models/User.js';
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
+const User = require('../models/User');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const config = require('../config/config');
 
 // Inscription d'un utilisateur
-const registerUser = async (req, res) => {
-  const { username, email, password } = req.body;
-  
+exports.register = async (req, res, next) => {
   try {
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    const newUser = new User({
-      username,
+    const { name, email, password } = req.body;
+    
+    // Vérifier si l'utilisateur existe déjà
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cet email est déjà utilisé'
+      });
+    }
+    
+    // Créer un nouvel utilisateur
+    const user = await User.create({
+      name,
       email,
-      password: hashedPassword
+      password
     });
-
-    await newUser.save();
-    res.status(201).json({ message: 'Utilisateur créé avec succès' });
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur' });
+    
+    // Générer un token JWT
+    const token = jwt.sign(
+      { id: user._id },
+      config.JWT_SECRET,
+      { expiresIn: config.JWT_EXPIRE }
+    );
+    
+    res.status(201).json({
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email
+      }
+    });
+  } catch (error) {
+    next(error);
   }
 };
 
 // Connexion d'un utilisateur
-const loginUser = async (req, res) => {
-  const { email, password } = req.body;
-
+exports.login = async (req, res, next) => {
   try {
-    const user = await User.findOne({ email });
-
+    const { email, password } = req.body;
+    
+    // Vérifier si l'utilisateur existe
+    const user = await User.findOne({ email }).select('+password');
     if (!user) {
-      return res.status(400).json({ message: 'Utilisateur non trouvé' });
+      return res.status(401).json({
+        success: false,
+        message: 'Email ou mot de passe incorrect'
+      });
     }
-
-    const validPassword = await bcrypt.compare(password, user.password);
-
-    if (!validPassword) {
-      return res.status(400).json({ message: 'Mot de passe incorrect' });
+    
+    // Vérifier si le mot de passe est correct
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Email ou mot de passe incorrect'
+      });
     }
-
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    res.json({ token });
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur' });
+    
+    // Générer un token JWT
+    const token = jwt.sign(
+      { id: user._id },
+      config.JWT_SECRET,
+      { expiresIn: config.JWT_EXPIRE }
+    );
+    
+    res.status(200).json({
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email
+      }
+    });
+  } catch (error) {
+    next(error);
   }
 };
 
-export { registerUser, loginUser };
+// Récupérer les informations de l'utilisateur connecté
+exports.getMe = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        id: user._id,
+        name: user.name,
+        email: user.email
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};

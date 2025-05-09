@@ -1,10 +1,20 @@
-import express from 'express';
-import { createAudit, getUserAudits } from '../controllers/auditController.js';
-import authMiddleware from '../middleware/authMiddleware.js';
+const express = require('express');
+const { 
+  createAudit, 
+  getUserAudits, 
+  getAudit, 
+  generatePdf 
+} = require('../controllers/auditController');
+const { protect, optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.post('/create', authMiddleware, createAudit);
-router.get('/history', authMiddleware, getUserAudits);
+// Routes accessibles avec ou sans authentification
+router.post('/', optionalAuth, createAudit);
+router.get('/:id', optionalAuth, getAudit);
+router.get('/:id/pdf', optionalAuth, generatePdf);
 
-export default router;
+// Routes protégées nécessitant une authentification
+router.get('/', protect, getUserAudits);
+
+module.exports = router;
