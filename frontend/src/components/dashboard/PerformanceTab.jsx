@@ -1,12 +1,17 @@
 import { useState } from 'react';
 import { Chart as ChartJS, ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js';
-import { Doughnut, Bar } from 'react-chartjs-2';
+import { Doughnut } from 'react-chartjs-2';
 import SimulatedDataNotice from '../common/SimulatedDataNotice';
 
 ChartJS.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
 const PerformanceTab = ({ data }) => {
   const [expandedIssue, setExpandedIssue] = useState(null);
+
+  // Fonction pour formater les scores (arrondir les nombres)
+  const formatScore = (score) => {
+    return Math.round(score || 0);
+  };
 
   if (!data) {
     return <div>Aucune donnée de performance disponible</div>;
@@ -37,13 +42,13 @@ const PerformanceTab = ({ data }) => {
   const speedIndex = data.speedIndex ? `${(data.speedIndex / 1000).toFixed(2)}s` : 'N/A';
   const interactiveTime = data.interactiveTime ? `${data.interactiveTime.toFixed(2)}s` : 'N/A';
   const mobileOptimization = data.mobileOptimization ? `${data.mobileOptimization}%` : 'N/A';
-  
-  // Données pour le graphique Doughnut
+
+  // Données pour le graphique Doughnut avec scores arrondis
   const scoreChartData = {
     labels: ['Score Performance'],
     datasets: [
       {
-        data: [score, 100 - score],
+        data: [formatScore(score), 100 - formatScore(score)],
         backgroundColor: ['#10B981', '#E5E7EB'],
         borderWidth: 0,
       },
@@ -69,7 +74,7 @@ const PerformanceTab = ({ data }) => {
 
   // Afficher un message si les données sont simulées
   const isSimulatedData = data.isRealData === false || data.errorInfo?.code;
-  
+
   const issues = data.issues || [];
 
   return (
@@ -77,29 +82,29 @@ const PerformanceTab = ({ data }) => {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-800">Audit Performance</h2>
         <div className="bg-green-100 text-green-800 font-medium rounded-full px-4 py-1 text-lg">
-          Score: {score}%
+          Score: {formatScore(score)}%
         </div>
       </div>
-      
+
       {isSimulatedData && (
-        <SimulatedDataNotice 
-          type="GTmetrix" 
-          errorCode={data.errorInfo?.code} 
+        <SimulatedDataNotice
+          type="GTmetrix"
+          errorCode={data.errorInfo?.code}
         />
       )}
-      
+
       {/* Graphique de score et métriques principales */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 col-span-1 flex flex-col items-center justify-center">
           <div className="h-48 w-48 relative">
             <Doughnut data={scoreChartData} options={chartOptions} />
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-3xl font-bold text-gray-900">{score}%</span>
+              <span className="text-3xl font-bold text-gray-900">{formatScore(score)}%</span>
             </div>
           </div>
           <h3 className="text-lg font-medium text-gray-700 mt-4">Score Global</h3>
         </div>
-        
+
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 col-span-3">
           <h3 className="text-lg font-medium text-gray-700 mb-4">Métriques clés</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -132,7 +137,7 @@ const PerformanceTab = ({ data }) => {
           </div>
         </div>
       </div>
-      
+
       {/* Métriques avancées GTmetrix */}
       {hasGtmetrixData && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
@@ -157,13 +162,12 @@ const PerformanceTab = ({ data }) => {
           </div>
         </div>
       )}
-      
+
       {/* Liste des problèmes */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
           <h3 className="text-lg font-medium text-gray-800">Problèmes détectés ({issues.length})</h3>
         </div>
-        
         <div className="divide-y divide-gray-200">
           {issues.length > 0 ? (
             issues.map((issue, index) => (

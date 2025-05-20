@@ -8,6 +8,11 @@ const OverviewTab = ({ data }) => {
     return <div>Aucune donnée disponible</div>;
   }
 
+  // Fonction pour formater les scores (arrondir les nombres)
+  const formatScore = (score) => {
+    return Math.round(score || 0);
+  };
+
   // Extraire les scores des différentes catégories
   const seoScore = data.seo?.score || 0;
   const performanceScore = data.performance?.score || 0;
@@ -53,12 +58,12 @@ const OverviewTab = ({ data }) => {
   const importantCount = getImportantCount();
   const minorCount = getMinorCount();
   
-  // Données pour les graphiques
+  // Données pour les graphiques avec scores arrondis
   const seoChartData = {
     labels: ['Score SEO'],
     datasets: [
       {
-        data: [seoScore, 100 - seoScore],
+        data: [formatScore(seoScore), 100 - formatScore(seoScore)],
         backgroundColor: ['#4F46E5', '#E5E7EB'],
         borderWidth: 0,
       },
@@ -69,7 +74,7 @@ const OverviewTab = ({ data }) => {
     labels: ['Score Performance'],
     datasets: [
       {
-        data: [performanceScore, 100 - performanceScore],
+        data: [formatScore(performanceScore), 100 - formatScore(performanceScore)],
         backgroundColor: ['#10B981', '#E5E7EB'],
         borderWidth: 0,
       },
@@ -80,7 +85,7 @@ const OverviewTab = ({ data }) => {
     labels: ['Score UI/UX'],
     datasets: [
       {
-        data: [uiUxScore, 100 - uiUxScore],
+        data: [formatScore(uiUxScore), 100 - formatScore(uiUxScore)],
         backgroundColor: ['#F59E0B', '#E5E7EB'],
         borderWidth: 0,
       },
@@ -118,7 +123,7 @@ const OverviewTab = ({ data }) => {
           <div className="mb-4 h-48 relative">
             <Doughnut data={seoChartData} options={chartOptions} />
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className={`text-3xl font-bold ${getScoreColorClass(seoScore)}`}>{seoScore}%</span>
+              <span className={`text-3xl font-bold ${getScoreColorClass(seoScore)}`}>{formatScore(seoScore)}%</span>
             </div>
           </div>
           <h3 className="text-xl font-semibold text-gray-800">SEO</h3>
@@ -132,7 +137,7 @@ const OverviewTab = ({ data }) => {
           <div className="mb-4 h-48 relative">
             <Doughnut data={performanceChartData} options={chartOptions} />
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className={`text-3xl font-bold ${getScoreColorClass(performanceScore)}`}>{performanceScore}%</span>
+              <span className={`text-3xl font-bold ${getScoreColorClass(performanceScore)}`}>{formatScore(performanceScore)}%</span>
             </div>
           </div>
           <h3 className="text-xl font-semibold text-gray-800">Performance</h3>
@@ -146,7 +151,7 @@ const OverviewTab = ({ data }) => {
           <div className="mb-4 h-48 relative">
             <Doughnut data={uiuxChartData} options={chartOptions} />
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className={`text-3xl font-bold ${getScoreColorClass(uiUxScore)}`}>{uiUxScore}%</span>
+              <span className={`text-3xl font-bold ${getScoreColorClass(uiUxScore)}`}>{formatScore(uiUxScore)}%</span>
             </div>
           </div>
           <h3 className="text-xl font-semibold text-gray-800">UI/UX</h3>
